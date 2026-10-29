@@ -9,7 +9,13 @@ import { Transaction } from '@mysten/sui/transactions';
 import { SuiClient } from '@mysten/sui/client';
 import { getAllowlistedKeyServers, SealClient, SessionKey } from '@mysten/seal';
 import { useParams } from 'react-router-dom';
-import { downloadAndDecrypt, getObjectExplorerLink, MoveCallConstructor } from './utils';
+import {
+  DecryptedFile,
+  downloadAndDecrypt,
+  getObjectExplorerLink,
+  MoveCallConstructor,
+} from './utils';
+import { DecryptedFileView } from './DecryptedFileView';
 
 const TTL_MIN = 10;
 export interface FeedData {
@@ -37,7 +43,7 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
   const packageId = useNetworkVariable('packageId');
 
   const [feed, setFeed] = useState<FeedData>();
-  const [decryptedFileUrls, setDecryptedFileUrls] = useState<string[]>([]);
+  const [decryptedFiles, setDecryptedFiles] = useState<DecryptedFile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [currentSessionKey, setCurrentSessionKey] = useState<SessionKey | null>(null);
   const { id } = useParams();
@@ -92,7 +98,7 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
         client,
         moveCallConstructor,
         setError,
-        setDecryptedFileUrls,
+        setDecryptedFiles,
         setIsDialogOpen,
         setReloadKey,
       );
@@ -123,7 +129,7 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
               client,
               moveCallConstructor,
               setError,
-              setDecryptedFileUrls,
+              setDecryptedFiles,
               setIsDialogOpen,
               setReloadKey,
             );
@@ -157,23 +163,19 @@ const Feeds: React.FC<{ suiAddress: string }> = ({ suiAddress }) => {
                       Download And Decrypt All Files
                     </Button>
                   </Dialog.Trigger>
-                  {decryptedFileUrls.length > 0 && (
+                  {decryptedFiles.length > 0 && (
                     <Dialog.Content maxWidth="450px" key={reloadKey}>
                       <Dialog.Title>View all files retrieved from Walrus</Dialog.Title>
                       <Flex direction="column" gap="2">
-                        {decryptedFileUrls.map((decryptedFileUrl, index) => (
+                        {decryptedFiles.map((file, index) => (
                           <div key={index}>
-                            <img src={decryptedFileUrl} alt={`Decrypted image ${index + 1}`} />
+                            <DecryptedFileView file={file} />
                           </div>
                         ))}
                       </Flex>
                       <Flex gap="3" mt="4" justify="end">
                         <Dialog.Close>
-                          <Button
-                            variant="soft"
-                            color="gray"
-                            onClick={() => setDecryptedFileUrls([])}
-                          >
+                          <Button variant="soft" color="gray" onClick={() => setDecryptedFiles([])}>
                             Close
                           </Button>
                         </Dialog.Close>

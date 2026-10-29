@@ -7,6 +7,7 @@ import { useSignAndExecuteTransaction, useSuiClient } from '@mysten/dapp-kit';
 import { Button, Card, Flex, Spinner, Text } from '@radix-ui/themes';
 import { getAllowlistedKeyServers, SealClient } from '@mysten/seal';
 import { fromHex, toHex } from '@mysten/sui/utils';
+import { packFile } from './utils';
 
 export type Data = {
   status: string;
@@ -121,11 +122,6 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
       alert('File size must be less than 10 MiB');
       return;
     }
-    // Check if file is an image
-    if (!file.type.startsWith('image/')) {
-      alert('Only image files are allowed');
-      return;
-    }
     setFile(file);
     setInfo(null);
   };
@@ -145,7 +141,11 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
               threshold: 2,
               packageId,
               id,
-              data: new Uint8Array(result),
+              data: packFile(
+                new Uint8Array(result),
+                file.name,
+                file.type || 'application/octet-stream',
+              ),
             });
             const storageInfo = await storeBlob(encryptedBytes);
             displayUpload(storageInfo.info, file.type);
@@ -249,13 +249,8 @@ export function WalrusUpload({ policyObject, cap_id, moduleName }: WalrusUploadP
             ))}
           </select>
         </Flex>
-        <input
-          type="file"
-          onChange={handleFileChange}
-          accept="image/*"
-          aria-label="Choose image file to upload"
-        />
-        <p>File size must be less than 10 MiB. Only image files are allowed.</p>
+        <input type="file" onChange={handleFileChange} aria-label="Choose file to upload" />
+        <p>File size must be less than 10 MiB.</p>
         <Button
           onClick={() => {
             handleSubmit();

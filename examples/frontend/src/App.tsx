@@ -84,8 +84,8 @@ function App() {
           retrieved even if you have access.
         </p>
         <p>
-          4. Currently only image files are supported, and the UI is minimal, designed for demo
-          purposes only!
+          4. Images are shown inline, videos and audio are playable, and other file types can be
+          downloaded after decryption. The UI is minimal, designed for demo purposes only!
         </p>
       </Card>
       {currentAccount ? (
