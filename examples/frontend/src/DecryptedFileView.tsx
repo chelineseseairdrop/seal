@@ -10,7 +10,12 @@ export function DecryptedFileView({ file }: { file: DecryptedFile }) {
     </Link>
   );
   if (file.type.startsWith('image/')) {
-    return <img src={file.url} alt={file.name} />;
+    return (
+      <div>
+        <img src={file.url} alt={file.name} />
+        {download}
+      </div>
+    );
   }
   if (file.type.startsWith('video/')) {
     return (
