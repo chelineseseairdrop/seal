@@ -5,6 +5,54 @@ import React from 'react';
 
 export type MoveCallConstructor = (tx: Transaction, id: string) => void;
 
+export type DecryptedFile = {
+  url: string;
+  name: string;
+  type: string;
+};
+
+// Plaintext layout: MAGIC | u32 BE header length | JSON { name, type } | file bytes.
+// Blobs without MAGIC were uploaded before metadata was added and are treated as images.
+const FILE_MAGIC = new TextEncoder().encode('SEALF1');
+const LEGACY_FILE_TYPE = 'image/jpg';
+
+export const packFile = (bytes: Uint8Array, name: string, type: string): Uint8Array => {
+  const header = new TextEncoder().encode(JSON.stringify({ name, type }));
+  const packed = new Uint8Array(FILE_MAGIC.length + 4 + header.length + bytes.length);
+  packed.set(FILE_MAGIC, 0);
+  new DataView(packed.buffer).setUint32(FILE_MAGIC.length, header.length);
+  packed.set(header, FILE_MAGIC.length + 4);
+  packed.set(bytes, FILE_MAGIC.length + 4 + header.length);
+  return packed;
+};
+
+export const unpackFile = (
+  data: Uint8Array,
+): { bytes: Uint8Array; name: string | null; type: string } => {
+  const legacy = { bytes: data, name: null, type: LEGACY_FILE_TYPE };
+  const headerStart = FILE_MAGIC.length + 4;
+  if (data.length < headerStart || !FILE_MAGIC.every((b, i) => data[i] === b)) {
+    return legacy;
+  }
+  const headerLength = new DataView(data.buffer, data.byteOffset).getUint32(FILE_MAGIC.length);
+  if (headerStart + headerLength > data.length) {
+    return legacy;
+  }
+  try {
+    const header = JSON.parse(
+      new TextDecoder().decode(data.subarray(headerStart, headerStart + headerLength)),
+    );
+    return {
+      bytes: data.subarray(headerStart + headerLength),
+      name: typeof header.name === 'string' && header.name ? header.name : null,
+      type:
+        typeof header.type === 'string' && header.type ? header.type : 'application/octet-stream',
+    };
+  } catch {
+    return legacy;
+  }
+};
+
 export const downloadAndDecrypt = async (
   blobIds: string[],
   sessionKey: SessionKey,
@@ -12,7 +60,7 @@ export const downloadAndDecrypt = async (
   sealClient: SealClient,
   moveCallConstructor: (tx: Transaction, id: string) => void,
   setError: (error: string | null) => void,
-  setDecryptedFileUrls: (urls: string[]) => void,
+  setDecryptedFiles: (files: DecryptedFile[]) => void,
   setIsDialogOpen: (open: boolean) => void,
   setReloadKey: (updater: (prev: number) => number) => void,
 ) => {
@@ -72,7 +120,7 @@ export const downloadAndDecrypt = async (
   }
 
   // Then, decrypt files sequentially
-  const decryptedFileUrls: string[] = [];
+  const decryptedFiles: DecryptedFile[] = [];
   for (const encryptedData of validDownloads) {
     const fullId = EncryptedObject.parse(new Uint8Array(encryptedData)).id;
     const tx = new Transaction();
@@ -85,8 +133,12 @@ export const downloadAndDecrypt = async (
         sessionKey,
         txBytes,
       });
-      const blob = new Blob([decryptedFile], { type: 'image/jpg' });
-      decryptedFileUrls.push(URL.createObjectURL(blob));
+      const { bytes, name, type } = unpackFile(decryptedFile);
+      decryptedFiles.push({
+        url: URL.createObjectURL(new Blob([bytes], { type })),
+        name: name ?? `file-${decryptedFiles.length + 1}`,
+        type,
+      });
     } catch (err) {
       console.log(err);
       const errorMsg =
@@ -99,8 +151,8 @@ export const downloadAndDecrypt = async (
     }
   }
 
-  if (decryptedFileUrls.length > 0) {
-    setDecryptedFileUrls(decryptedFileUrls);
+  if (decryptedFiles.length > 0) {
+    setDecryptedFiles(decryptedFiles);
     setIsDialogOpen(true);
     setReloadKey((prev) => prev + 1);
   }
